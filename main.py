@@ -1,3 +1,4 @@
+# cookie自動抓取
 import time
 import random
 import json
@@ -26,8 +27,13 @@ def download_obj(data, path):
 
 
 def get_json(url):
-    response = requests.get(url, headers=headers, timeout=10)
-    return response.json()
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        return response.json()
+    except Exception as e:
+        print(e)
+        time.sleep(60 + float(random.randint(1, 4000)) / 100)
+        return get_json(url)
 
 
 def get_html(url):
@@ -85,7 +91,7 @@ def get_user_urls(html):
                     urls.append(display_url)
         print(cursor, flag)
         # if count > 2000, turn on
-        time.sleep(4 + float(random.randint(1, 800)) / 200)
+        # time.sleep(4 + float(random.randint(1, 800)) / 200)
     return urls
 
 
@@ -152,20 +158,27 @@ def main(user):
         urls = get_user_urls(html)
     else:
         urls = get_tag_urls(html)
-    dirpath = r'C:\Users\s8792\Downloads\ig\{0}'.format(user)
+
+    dirpath = r'.\ig\{0}'.format(user)  # r'C:\Users\s8792\Downloads\ig\{0}'
     if not os.path.exists(dirpath):
-        os.mkdir(dirpath)
+        os.makedirs(dirpath)
     for i in range(len(urls)):
         print('\n正在下載第{0}張： '.format(i+1) +
-              urls[i], ' 還剩{0}張'.format(len(urls)-i-1))
-        content = get_content(urls[i])
-        file_path = r'C:\Users\s8792\Downloads\ig\{0}\{1}.{2}'.format(
-            user, md5(content).hexdigest(), urls[i][-130:-127])
-        if not os.path.exists(file_path):
-            download_obj(content, file_path)        # 如果檔案不存在就執行下載
-            print('第{0}張下載完成： '.format(i+1) + urls[i])
-        else:
-            print('第{0}張下載完成： '.format(i+1) + urls[i])
+              urls[i], ' 還剩{0}張'.format(len(urls) - i - 1))
+        try:
+            content = get_content(urls[i])
+            ext = re.findall('.jpg?', urls[i])  # 判斷副檔名
+            urlext = 'jpg' if ext else 'mp4'
+            file_path = r'.\ig\{0}\{1}.{2}'.format(
+                user, md5(content).hexdigest(), urlext)
+            if not os.path.exists(file_path):
+                download_obj(content, file_path)        # 如果檔案不存在就執行下載
+                print('第{0}張下載完成： '.format(i+1) + urls[i])
+            else:
+                print('第{0}張下載完成： '.format(i + 1) + urls[i])
+        except Exception as e:
+            print(e)
+            print('此檔案下載失敗!')
 
 
 user_name = input('請輸入ig帳號或tag：')
