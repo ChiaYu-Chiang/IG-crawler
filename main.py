@@ -6,17 +6,35 @@ import re
 import os
 from hashlib import md5
 from pyquery import PyQuery as pq
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
-url_base = 'https://www.instagram.com/'
-uri_account = 'https://www.instagram.com/graphql/query/?query_hash=a5164aed103f24b03e7b7747a2d94e3c&variables=%7B%22id%22%3A%22{user_id}%22%2C%22first%22%3A12%2C%22after%22%3A%22{cursor}%22%7D'
-uri_hashtag = 'https://www.instagram.com/graphql/query/?query_hash=c769cb6c71b24c8a86590b22402fda50&variables=%7B%22tag_name%22%3A%22{user_id}%22%2C%22first%22%3A12%2C%22after%22%3A%22{cursor}%22%7D'
-# 請更改cookie_data內的訊息，以成功獲取已追蹤非公開帳號的權限
-cookie_data = '在這邊貼上自己的cookie'
-headers = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36',
-    # 透過cookie取得權限
-    'cookie': cookie_data
-}
+
+def get_cookies():
+    username = input('請輸入你的帳號: ')
+    password = input('請輸入你的密碼: ')
+
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    driver = webdriver.Chrome(chrome_options=chrome_options)
+    driver.implicitly_wait(5)
+    driver.get("https://www.instagram.com/accounts/login/")
+
+    driver.find_element_by_name("username").send_keys(username)
+    driver.find_element_by_name("password").send_keys(password)
+    driver.find_element_by_class_name(
+        "Igw0E.IwRSH.eGOV_._4EzTm.bkEs3.CovQj.jKUp7.DhRcB").click()
+    time.sleep(5)
+
+    driver.find_element_by_class_name("sqdOP.L3NKy.y3zKF").click()
+    driver.implicitly_wait(5)
+
+    cookie = [item["name"] + "=" + item["value"]
+              for item in driver.get_cookies()]
+    cookiestr = ';'.join(item for item in cookie)
+
+    driver.quit()
+    return cookiestr
 
 
 def download_obj(data, path):
@@ -68,7 +86,6 @@ def get_user_urls(html):
                 if edge['node']['display_url']:
                     display_url = edge['node']['display_url']
                     print(display_url)
-                    # append()增加url於urls尾端
                     urls.append(display_url)
             print(cursor, flag)
     while flag:  # 當還有下一頁時
@@ -96,7 +113,7 @@ def get_user_urls(html):
 
 def get_tag_urls(html):
     urls = []
-    user_id = re.sub('#', '', user_name)
+    user_id = re.sub('#', '', target_name)
     print('user_id：' + user_id)
     doc = pq(html)      # 初始化PyQuery對象之後，會把html文檔補全
     items = doc('script[type="text/javascript"]').items()
@@ -158,7 +175,8 @@ def main(user):
     else:
         urls = get_tag_urls(html)
 
-    dirpath = r'.\ig\{0}'.format(user)  # r'C:\Users\s8792\Downloads\ig\{0}'
+    dirpath = r'.\ig\{0}'.format(user)
+    # 若要改指定位置，參考→r'C:\Users\s8792\Downloads\ig\{0}'
     if not os.path.exists(dirpath):
         os.makedirs(dirpath)
     for i in range(len(urls)):
@@ -171,7 +189,7 @@ def main(user):
             file_path = r'.\ig\{0}\{1}.{2}'.format(
                 user, md5(content).hexdigest(), urlext)
             if not os.path.exists(file_path):
-                download_obj(content, file_path)        # 如果檔案不存在就執行下載
+                download_obj(content, file_path)
                 print('第{0}張下載完成： '.format(i+1) + urls[i])
             else:
                 print('第{0}張下載完成： '.format(i + 1) + urls[i])
@@ -180,9 +198,20 @@ def main(user):
             print('此檔案下載失敗!')
 
 
-user_name = input('請輸入ig帳號或tag：')
+url_base = 'https://www.instagram.com/'
+uri_account = 'https://www.instagram.com/graphql/query/?query_hash=a5164aed103f24b03e7b7747a2d94e3c&variables=%7B%22id%22%3A%22{user_id}%22%2C%22first%22%3A12%2C%22after%22%3A%22{cursor}%22%7D'
+uri_hashtag = 'https://www.instagram.com/graphql/query/?query_hash=c769cb6c71b24c8a86590b22402fda50&variables=%7B%22tag_name%22%3A%22{user_id}%22%2C%22first%22%3A12%2C%22after%22%3A%22{cursor}%22%7D'
+# 呼叫get_cookies()以取得cookie
+cookie_data = get_cookies()
+headers = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36',
+    # 透過cookie取得權限
+    'cookie': cookie_data
+}
+
+target_name = input('請輸入ig帳號或tag：')
 start = time.time()
-main(user_name)
+main(target_name)
 print('下載已完成!!!! ヽ(●´∀`●)ﾉ')
 end = time.time()
 spend = end - start
